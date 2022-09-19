@@ -28,20 +28,24 @@ begin
 	# To extract parameters
 	params(d::Dense) = [d.w, d.b]
 	params(c::Chain) = reduce((p, l) -> vcat(p, params(l)), c.layers, init = [])
-end
+end;
 
 # ╔═╡ 52e117e7-b8af-46f7-9fda-1d2e52e316d6
 begin
 	N, M = 6, 8
 	Nh = 10
-	ψ = Chain(Dense(M, Nh, tanh), Dense(Nh, 2))
+	u = Chain(Dense(M, Nh, tanh), Dense(Nh, 2))
+	ψ(n) = exp(sum(u(n) .* [1, 1im]))
 end
 
 # ╔═╡ 6b83f78b-13db-4d2c-a79f-98d1319fb320
-# begin
-# 	y = @diff ψ(rand(M))[1]
-# 	grad(y, params(ψ)[1])
-# end
+begin
+	y = @diff ψ(rand(M))
+	grad(y, params(u)[2])
+end
+
+# ╔═╡ 8c9f6a1c-7a04-4c2b-a2b6-fc2722702432
+
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -311,5 +315,6 @@ version = "17.4.0+0"
 # ╠═f4ce722c-49d7-41a2-813b-6a3eaebc3d4b
 # ╠═52e117e7-b8af-46f7-9fda-1d2e52e316d6
 # ╠═6b83f78b-13db-4d2c-a79f-98d1319fb320
+# ╠═8c9f6a1c-7a04-4c2b-a2b6-fc2722702432
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
