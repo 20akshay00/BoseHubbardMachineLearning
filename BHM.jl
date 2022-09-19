@@ -45,7 +45,11 @@ begin
 end
 
 # ╔═╡ 8c9f6a1c-7a04-4c2b-a2b6-fc2722702432
-
+begin
+	function expectation(ψ, op, N, M)
+		
+	end
+end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
