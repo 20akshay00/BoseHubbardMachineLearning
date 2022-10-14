@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.11
+# v0.19.13
 
 using Markdown
 using InteractiveUtils
@@ -221,7 +221,10 @@ end
 # hist = energy_grad(ψ, 5, 5, basis, u, 1e-3; t = 0.5, mu = 1.5, U = 1.)
 
 # ╔═╡ df166181-e284-41b2-844b-c30c1694d6b3
+# ╠═╡ disabled = true
+#=╠═╡
 Ow(ψ, basis, u, 1e-2)
+  ╠═╡ =#
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
