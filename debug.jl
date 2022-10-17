@@ -6,6 +6,7 @@ using InteractiveUtils
 
 # ╔═╡ 1a4bd574-b4d3-488e-a697-26e8e77b76de
 using AutoGrad, StatsBase, LinearAlgebra, DataStructures, GLMakie, GeometryTypes
+using AbstractPlotting, AbstractPlotting.MakieLayout
 
 # ╔═╡ aad5e746-7bf7-45d9-a9cc-f18787c4ca78
 begin
@@ -140,13 +141,17 @@ begin
 		hist = CircularBuffer{ComplexF64}(window_size)
 	
 		###
+		scene, layout = layoutscene(resolution = (1200, 900))
+		ax = layout[1, 1] = LAxis(scene)
+		sl1 = layout[2, 1] = LSlider(scene, range = 0:0.01:0.1, startvalue = 0.1)
+
 		fig = Figure(); display(fig)
         ax = Axis(fig[1,1])
         hist2 = Observable([Point2f0(0, abs(res))])
 		lines!(ax, hist2; linewidth = 4, color = :purple)
 		n_iter = 0
-		debug = Observable("0")
-		text!(campixel(ax.scene), debug, space = :data)
+		# debug = Observable("0")
+		# text!(campixel(ax.scene), debug, space = :data)
 		###
 	
 		while(true)
@@ -161,7 +166,8 @@ begin
 			end
 	
 			res /= ψ(state)
-			push!(hist, res/(length(hist) + 1))
+
+			push!(hist, res/(n_iter + 1))
 			
 			if(isfull(hist) && (rms(abs.(hist))/mean(abs.(hist)) < atol)) break end
 
@@ -171,9 +177,8 @@ begin
 			if n_iter % 100 == 0
 				push!(hist2[], Point2f0(n_iter, abs(hist[end])))
 				hist2[] = hist2[]
-				ylims!(ax, 0, maximum(getindex.(hist2[], 2)))
+				ylims!(ax, 0, ymax)
 				xlims!(ax, 0, n_iter)
-				debug[] = string(rms(abs.(hist)))
 				sleep(0.00001)
 			end
 			###
