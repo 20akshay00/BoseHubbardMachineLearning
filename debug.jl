@@ -44,12 +44,6 @@ begin
 	end
 end;
 
-# Snippet to get derivative of network outputs wrt weights
-# begin
-# 	y = @diff ψ(rand(M))
-# 	grad.([y], params(u))
-# end
-
 # Enumerate occupation basis set for N bosons on L lattice sites
 begin
 	hilbert_dim(k, n) = binomial(k + n - 1, n - 1)
@@ -79,17 +73,7 @@ begin
 	end
 end
 
-# Mock network + wavefunction for testing
-begin
-	N, M = 5, 5
-	Nh = 10
-	u = Chain(Dense(M, Nh, tanh), Dense(Nh, 2))
-	ψ(n) = exp(sum(u(n) .* [1, 1im]))
-
-	basis = generate_basis(5, 5)
-end;
-
-# Operator definitions 
+# Operator definitions; they must return a tuple (coefficient, state_final) after operating on a state.
 begin
 	# aᵢ† aⱼ with clamps on i > N and j < 0		
 	function hop(state, L, N; i, j)
@@ -134,9 +118,11 @@ begin
 	
 	# Monte Carlo expectation for arbitrary operator. Pass operator dependant parameters in kwargs.
 	function expectationMC(ψ, op, L, N, basis, network, atol = 1e-3, window_size = 1000; kwargs...)
-		res = 0. + 0im
-		state = sample_state(basis)
-		hist = CircularBuffer{ComplexF64}(window_size)
+
+		res = 0. + 0im # result (summing over contributions of the MC chain, but not averaged yet)
+
+		state = sample_state(basis) # initial sample
+		expectations = CircularBuffer{ComplexF64}(window_size) # keeps track of history of MC results for last 'window_size' sweeps
 		n_iter = 0
 	
 		### Makie.jl debug plots 
@@ -163,14 +149,14 @@ begin
 			end
 	
 			# push the result to hist (divided by n_iter to calculate Monte Carlo average)
-			push!(hist, res/n_iter)
+			push!(expectations, res/n_iter)
 			
 			# terminate MC when the result has converged within a window
-			if(isfull(hist) && (rms(abs.(hist)) < atol * mean(abs.(hist)))) break end
+			if(isfull(expectations) && (rms(abs.(expectations)) < atol * mean(abs.(expectations)))) break end
 
 			### Makie.jl debug plots 
 			if n_iter % 100 == 0
-				push!([], Point2f0(n_iter, abs(hist[end])))
+				push!(hist_plot[], Point2f0(n_iter, abs(expectations[end])))
 				if (length(hist_plot[]) > 500)
 					popfirst!(hist_plot[])
 				end
@@ -183,64 +169,85 @@ begin
 			###
 		end
 
-		return mean(hist), n_iter
+		return mean(expectations), n_iter
 	end
-
-	# function Ow_energy(ψ, L, N, basis, network, atol = 1e-3, window_size = 1000; kwargs...)
-		
-	# 	res = zeros(ComplexF64, size(network))
-	# 	state = sample_state(basis)
-	# 	hist = CircularBuffer{Vector{ComplexF64}}(window_size)
-		
-	# 	while(true)
-	# 		new_state = sample_state(basis)
-			
-	# 		if (rand() < abs.(ψ(new_state)/ψ(state)) ^ 2)
-	# 			state = new_state
-	# 		end
-
-	# 		for (state_final, coeff) in hamiltonian(state, L, N; kwargs...)
-	# 			res .+= coeff * ψ(state_final)
-	# 		end
-			
-	# 		deriv = @diff ψ(state)
-	# 		Ow = vcat(vec.(grad.([deriv], params(network)))...) ./ ψ(state)
-				
-	# 		res .*= conj.(Ow)
-	# 		push!(hist, (res)./(length(hist) + 1))
-
-	# 		if(isfull(hist) && rms(norm.(hist)) < atol) break end
-	# 	end
-
-	# 	return [mean([hist[i][j] for i in 1:length(hist)]) for j in 1:length(hist[1])]
-	# end
-
-	# function Ow(ψ, basis, network, atol = 1e-3, window_size = 1000)
-	# 	res = zeros(ComplexF64, size(network))
-	# 	state = sample_state(basis)
-	# 	hist = CircularBuffer{Vector{ComplexF64}}(window_size)
-
-	# 	while(true)
-	# 		new_state = sample_state(basis)
-			
-	# 		if (rand() < abs.(ψ(new_state)/ψ(state)) ^ 2)
-	# 			state = new_state
-	# 		end
-
-	# 		deriv = @diff ψ(state)
-	# 		Ow = vcat(vec.(grad.([deriv], params(network)))...) ./ ψ(state)
-			
-	# 		res .+= conj.(Ow)
-	# 		push!(hist, (res)./(length(hist) + 1))
-			
-	# 		if(isfull(hist) && rms(norm.(hist)) < atol) break end
-
-    # 	end
-
-	# 	return [mean([hist[i][j] for i in 1:length(hist)]) for j in 1:length(hist[1])]
-	# end
-
-	# function energy_grad(ψ, L, N, basis, network, rtol = 1e-3; kwargs...)
-	# 	2 .* real.(Ow_energy(ψ, L, N, basis, network, rtol; kwargs...) .- Ow(ψ, basis, network, rtol) .* expectationMC(ψ, hamiltonian, L, N, basis, network, rtol); kwargs...)
-	# end
 end
+
+# Mock network + wavefunction for testing
+begin
+	N, M = 5, 5
+	Nh = 10
+	u = Chain(Dense(M, Nh, tanh), Dense(Nh, 2))
+	ψ(n) = exp(sum(u(n) .* [1, 1im]))
+
+	basis = generate_basis(5, 5)
+	() # to suppress terminal output 
+end;
+
+
+## Snippet to get derivative of network outputs wrt weights
+
+# begin
+# 	y = @diff ψ(rand(M))
+# 	grad.([y], params(u))
+# end
+
+## Other expectations needed to compute energy gradient
+
+# function Ow_energy(ψ, L, N, basis, network, atol = 1e-3, window_size = 1000; kwargs...)
+	
+# 	res = zeros(ComplexF64, size(network))
+# 	state = sample_state(basis)
+# 	hist = CircularBuffer{Vector{ComplexF64}}(window_size)
+	
+# 	while(true)
+# 		new_state = sample_state(basis)
+		
+# 		if (rand() < abs.(ψ(new_state)/ψ(state)) ^ 2)
+# 			state = new_state
+# 		end
+
+# 		for (state_final, coeff) in hamiltonian(state, L, N; kwargs...)
+# 			res .+= coeff * ψ(state_final)
+# 		end
+		
+# 		deriv = @diff ψ(state)
+# 		Ow = vcat(vec.(grad.([deriv], params(network)))...) ./ ψ(state)
+			
+# 		res .*= conj.(Ow)
+# 		push!(hist, (res)./(length(hist) + 1))
+
+# 		if(isfull(hist) && rms(norm.(hist)) < atol) break end
+# 	end
+
+# 	return [mean([hist[i][j] for i in 1:length(hist)]) for j in 1:length(hist[1])]
+# end
+
+# function Ow(ψ, basis, network, atol = 1e-3, window_size = 1000)
+# 	res = zeros(ComplexF64, size(network))
+# 	state = sample_state(basis)
+# 	hist = CircularBuffer{Vector{ComplexF64}}(window_size)
+
+# 	while(true)
+# 		new_state = sample_state(basis)
+		
+# 		if (rand() < abs.(ψ(new_state)/ψ(state)) ^ 2)
+# 			state = new_state
+# 		end
+
+# 		deriv = @diff ψ(state)
+# 		Ow = vcat(vec.(grad.([deriv], params(network)))...) ./ ψ(state)
+		
+# 		res .+= conj.(Ow)
+# 		push!(hist, (res)./(length(hist) + 1))
+		
+# 		if(isfull(hist) && rms(norm.(hist)) < atol) break end
+
+# 	end
+
+# 	return [mean([hist[i][j] for i in 1:length(hist)]) for j in 1:length(hist[1])]
+# end
+
+# function energy_grad(ψ, L, N, basis, network, rtol = 1e-3; kwargs...)
+# 	2 .* real.(Ow_energy(ψ, L, N, basis, network, rtol; kwargs...) .- Ow(ψ, basis, network, rtol) .* expectationMC(ψ, hamiltonian, L, N, basis, network, rtol); kwargs...)
+# end
