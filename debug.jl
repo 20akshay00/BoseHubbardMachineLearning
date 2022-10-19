@@ -73,7 +73,7 @@ begin
 	end
 end
 
-# Operator definitions; they must return a tuple (coefficient, state_final) after operating on a state.
+# Operator definitions; they must return a (collection of) tuples (state_final, coefficient) after operating on a state.
 begin
 	# aᵢ† aⱼ with clamps on i > N and j < 0		
 	function hop(state, L, N; i, j)
@@ -82,12 +82,12 @@ begin
 		state_final[j] -= 1
 		coeff = (state[i] >= N || state[j] == 0) ? 0. : sqrt((state[i] + 1) * state[j])
 
-		return coeff, state_final
+		return [(state_final, coeff)]
 	end
 
 	# f(n̂) - arbitrary functions of number operator
 	function num(state, i, f = identity)
-		return f(state[i]), copy(state)
+		return [(copy(state), f(state[i]))]
 	end
 	
 	function hamiltonian(state, L, N; t, U, mu)
@@ -95,16 +95,16 @@ begin
 		for i in 1:L
 			j = mod1(i, L)
 
-			coeff, state_final = hop(state, L, N; i = i, j = j)	
+			state_final, coeff = hop(state, L, N; i = i, j = j)[1]
 			res[state_final] = get(res, state_final, 0.) - t * coeff
 			
-			coeff, state_final = hop(state, L, N; i = j, j = i)	
+			state_final, coeff = hop(state, L, N; i = j, j = i)[1]
 			res[state_final] = get(res, state_final, 0.) - t * coeff
 
-			coeff, state_final = num(state, i, (n) -> n * (n - 1))
+			state_final, coeff = num(state, i, (n) -> n * (n - 1))[1]
 			res[state_final] = get(res, state_final, 0.) + 0.5 * U * coeff
 
-			coeff, state_final = num(state, i)
+			state_final, coeff = num(state, i)[1]
 			res[state_final] = get(res, state_final, 0.) - mu * coeff
 		end
 
@@ -127,8 +127,8 @@ begin
 	
 		### Makie.jl debug plots 
 		fig = Figure(); display(fig)
-        ax = Axis(fig[1,1])
-        hist_plot = Observable([Point2f0(0, abs(res))])
+		ax = Axis(fig[1,1])
+		hist_plot = Observable([Point2f0(0, abs(res))])
 		lines!(ax, hist_plot; linewidth = 4, color = :purple)
 		###
 	
