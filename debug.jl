@@ -117,7 +117,7 @@ begin
 	sample_state(basis) = basis[rand(1:size(basis)[1]), :]
 	
 	# Monte Carlo expectation for arbitrary operator. Pass operator dependant parameters in kwargs.
-	function expectationMC(ψ, op, L, N, basis, network, atol = 1e-3, window_size = 1000; callback = identity, kwargs...)
+	function expectationMC(ψ, op, L, N, basis, network, rtol = 1e-3, window_size = 1000; callback = identity, kwargs...)
 
 		res = 0. + 0im # result (summing over contributions of the MC chain, but not averaged yet)
 
@@ -145,13 +145,13 @@ begin
 			push!(expectations, res/n_iter)
 			
 			# terminate MC when the result has converged within a window
-			if(isfull(expectations) && (rms(abs.(expectations)) < atol * mean(abs.(expectations)))) break end
+			if(isfull(expectations) && (rms(abs.(expectations)) < rtol * mean(abs.(expectations)))) break end
 
 			# callback function to perform any task periodically (e.g. plotting)
 			if n_iter % 100 == 0 callback(expectations, n_iter) end
 		end
 
-		return mean(expectations), n_iter
+		return mean(expectations)
 	end
 end
 
@@ -160,15 +160,25 @@ function debug_plot_init()
 	fig = Figure(); display(fig)
 	ax = Axis(fig[1,1])
 	hist_plot = Observable([Point2f0(0, 0)])
+	hist_mean = Observable([0.])
+	ax.xlabel = "Number of iterations"
+	ax.ylabel = "MC average"
+
+	hlines!(ax, hist_mean; linewidth = 2.5, color = :black, linestyle = :dash)
 	lines!(ax, hist_plot; linewidth = 4, color = :purple)
 
 	function debug_plot(expectations, n_iter)
+		# update time series
 		push!(hist_plot[], Point2f0(n_iter, abs(expectations[end])))
 		if (length(hist_plot[]) > 500)
 			popfirst!(hist_plot[])
 		end
-
 		hist_plot[] = hist_plot[]
+
+		# update mean value
+		hist_mean[] = [abs(mean(expectations))]
+
+		# update axis lims
 		ylims!(ax, minimum(getindex.(hist_plot[], 2)), maximum(getindex.(hist_plot[], 2)))
 		xlims!(ax, minimum(getindex.(hist_plot[], 1)), maximum(getindex.(hist_plot[], 1)))
 		sleep(0.00001)
