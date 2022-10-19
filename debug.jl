@@ -117,20 +117,13 @@ begin
 	sample_state(basis) = basis[rand(1:size(basis)[1]), :]
 	
 	# Monte Carlo expectation for arbitrary operator. Pass operator dependant parameters in kwargs.
-	function expectationMC(ψ, op, L, N, basis, network, atol = 1e-3, window_size = 1000; kwargs...)
+	function expectationMC(ψ, op, L, N, basis, network, atol = 1e-3, window_size = 1000; callback = identity, kwargs...)
 
 		res = 0. + 0im # result (summing over contributions of the MC chain, but not averaged yet)
 
 		state = sample_state(basis) # initial sample
 		expectations = CircularBuffer{ComplexF64}(window_size) # keeps track of history of MC results for last 'window_size' sweeps
 		n_iter = 0
-	
-		### Makie.jl debug plots 
-		fig = Figure(); display(fig)
-		ax = Axis(fig[1,1])
-		hist_plot = Observable([Point2f0(0, abs(res))])
-		lines!(ax, hist_plot; linewidth = 4, color = :purple)
-		###
 	
 		while(true)
 			n_iter += 1
@@ -154,23 +147,34 @@ begin
 			# terminate MC when the result has converged within a window
 			if(isfull(expectations) && (rms(abs.(expectations)) < atol * mean(abs.(expectations)))) break end
 
-			### Makie.jl debug plots 
-			if n_iter % 100 == 0
-				push!(hist_plot[], Point2f0(n_iter, abs(expectations[end])))
-				if (length(hist_plot[]) > 500)
-					popfirst!(hist_plot[])
-				end
-
-				hist_plot[] = hist_plot[]
-				ylims!(ax, minimum(getindex.(hist_plot[], 2)), maximum(getindex.(hist_plot[], 2)))
-				xlims!(ax, minimum(getindex.(hist_plot[], 1)), maximum(getindex.(hist_plot[], 1)))
-				sleep(0.00001)
-			end
-			###
+			# callback function to perform any task periodically (e.g. plotting)
+			if n_iter % 100 == 0 callback(expectations, n_iter) end
 		end
 
 		return mean(expectations), n_iter
 	end
+end
+
+# Debug plotting callback function 
+function debug_plot_init()
+	fig = Figure(); display(fig)
+	ax = Axis(fig[1,1])
+	hist_plot = Observable([Point2f0(0, 0)])
+	lines!(ax, hist_plot; linewidth = 4, color = :purple)
+
+	function debug_plot(expectations, n_iter)
+		push!(hist_plot[], Point2f0(n_iter, abs(expectations[end])))
+		if (length(hist_plot[]) > 500)
+			popfirst!(hist_plot[])
+		end
+
+		hist_plot[] = hist_plot[]
+		ylims!(ax, minimum(getindex.(hist_plot[], 2)), maximum(getindex.(hist_plot[], 2)))
+		xlims!(ax, minimum(getindex.(hist_plot[], 1)), maximum(getindex.(hist_plot[], 1)))
+		sleep(0.00001)
+	end
+
+	return debug_plot
 end
 
 # Mock network + wavefunction for testing
@@ -182,6 +186,11 @@ begin
 
 	basis = generate_basis(5, 5)
 	() # to suppress terminal output 
+
+	# for some expectation values run: (remove callback arg if you dont need real-time plotting)
+	# expectationMC(ψ, hamiltonian, 5, 5, basis, u, 1e-3, 1000; callback = debug_plot_init(), t = 0.01, mu = 0.5, U = 1)
+	# or 
+	# expectationMC(ψ, hop, 5, 5, basis, u, 1e-3, 1000; callback = debug_plot_init(),i = 3, j = 4)
 end;
 
 
