@@ -55,7 +55,7 @@ $$H = -t\sum_{\langle i, j, \rangle} \hat{a}_i^{\dagger}\hat{a}_j + \frac{U}{2}\
 Code: `hamiltonian(state, L, N; t, U, mu)`
 
 
-#### Hopping parameter
+#### Hopping operator
 $$\text{Hop(i, j)} = \hat{a}_i^{\dagger}\hat{a}_j$$
 
 Code: `hop(state, L, N; i, j)`
