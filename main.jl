@@ -117,7 +117,7 @@ begin
 	sample_state(basis) = basis[rand(1:size(basis)[1]), :]
 	
 	# Monte Carlo expectation for arbitrary operator. Pass operator dependant parameters in kwargs.
-	function expectationMC(ψ, op, L, N, basis, network, rtol = 1e-3, window_size = 1000; callback = identity, kwargs...)
+	function expectationMC(ψ, op, L, N, basis, network, rtol = 1e-3, atol = 1e-5, window_size = 1000; callback = identity, kwargs...)
 
 		res = 0. + 0im # result (summing over contributions of the MC chain, but not averaged yet)
 
@@ -145,10 +145,10 @@ begin
 			push!(expectations, res/n_iter)
 			
 			# terminate MC when the result has converged within a window
-			if(isfull(expectations) && (rms(abs.(expectations)) < rtol * mean(abs.(expectations)))) break end
+			if(isfull(expectations) && (rms(abs.(expectations)) < (atol + rtol * mean(abs.(expectations))))) break end
 
 			# callback function to perform any task periodically (e.g. plotting)
-			if n_iter % 100 == 0 callback(expectations, n_iter) end
+			if n_iter % 100 == 0 callback([expectations, n_iter]) end
 		end
 
 		return mean(expectations)
@@ -167,7 +167,8 @@ function debug_plot_init()
 	hlines!(ax, hist_mean; linewidth = 2.5, color = :black, linestyle = :dash)
 	lines!(ax, hist_plot; linewidth = 4, color = :purple)
 
-	function debug_plot(expectations, n_iter)
+	function debug_plot(state)
+		expectations, n_iter = state
 		# update time series
 		push!(hist_plot[], Point2f0(n_iter, abs(expectations[end])))
 		if (length(hist_plot[]) > 500)
@@ -201,6 +202,10 @@ begin
 	# expectationMC(ψ, hamiltonian, 5, 5, basis, u, 1e-3, 1000; callback = debug_plot_init(), t = 0.01, mu = 0.5, U = 1)
 	# or 
 	# expectationMC(ψ, hop, 5, 5, basis, u, 1e-3, 1000; callback = debug_plot_init(),i = 3, j = 4)
+	# or
+	# Ow(ψ, basis, u, 1e-4, 1000; callback = debug_plot_init())
+	# or 
+	# Ow_energy(ψ, 5, 5, basis, u, 1e-3, 1000; callback = debug_plot_init(), t = 0.01, mu = 0.5, U = 1)
 end;
 
 
@@ -213,60 +218,71 @@ end;
 
 ## Other expectations needed to compute energy gradient
 
-# function Ow_energy(ψ, L, N, basis, network, atol = 1e-3, window_size = 1000; kwargs...)
+function Ow_energy(ψ, L, N, basis, network, rtol = 1e-3, atol = 1e-5, window_size = 1000; callback = identity, kwargs...)
 	
-# 	res = zeros(ComplexF64, size(network))
-# 	state = sample_state(basis)
-# 	hist = CircularBuffer{Vector{ComplexF64}}(window_size)
-	
-# 	while(true)
-# 		new_state = sample_state(basis)
+	res = zeros(ComplexF64, size(network))
+	state = sample_state(basis)
+	expectations = CircularBuffer{Vector{ComplexF64}}(window_size)
+	n_iter = 0
+
+	tmp_res = copy(res)
+
+	while(true)
+		tmp_res = zeros(ComplexF64, size(network))
+		n_iter += 1
+		new_state = sample_state(basis)
 		
-# 		if (rand() < abs.(ψ(new_state)/ψ(state)) ^ 2)
-# 			state = new_state
-# 		end
+		if (rand() < abs.(ψ(new_state)/ψ(state)) ^ 2)
+			state = new_state
+		end
 
-# 		for (state_final, coeff) in hamiltonian(state, L, N; kwargs...)
-# 			res .+= coeff * ψ(state_final)
-# 		end
+		for (state_op, coeff) in hamiltonian(state, L, N; kwargs...)
+			tmp_res .+= coeff * ψ(state_op)/ψ(state)
+		end
 		
-# 		deriv = @diff ψ(state)
-# 		Ow = vcat(vec.(grad.([deriv], params(network)))...) ./ ψ(state)
-			
-# 		res .*= conj.(Ow)
-# 		push!(hist, (res)./(length(hist) + 1))
+		deriv = @diff ψ(state)
+		Ow = vcat(vec.(grad.([deriv], params(network)))...) ./ ψ(state)
+		tmp_res .*= conj.(Ow)
 
-# 		if(isfull(hist) && rms(norm.(hist)) < atol) break end
-# 	end
+		res .+= tmp_res
 
-# 	return [mean([hist[i][j] for i in 1:length(hist)]) for j in 1:length(hist[1])]
-# end
+		push!(expectations, res ./ n_iter)
 
-# function Ow(ψ, basis, network, atol = 1e-3, window_size = 1000)
-# 	res = zeros(ComplexF64, size(network))
-# 	state = sample_state(basis)
-# 	hist = CircularBuffer{Vector{ComplexF64}}(window_size)
+		if(isfull(expectations) && (rms(norm.(expectations)) < (atol .+ rtol * mean(norm.(expectations))))) break end
 
-# 	while(true)
-# 		new_state = sample_state(basis)
+		if n_iter % 100 == 0 callback([norm.(expectations), n_iter]) end
+	end
+
+	return [mean([expectations[i][j] for i in 1:length(expectations)]) for j in 1:length(expectations[1])]
+end
+
+function Ow(ψ, basis, network, rtol = 1e-3, atol = 1e-5, window_size = 1000; callback = identity)
+	res = zeros(ComplexF64, size(network))
+	state = sample_state(basis)
+	expectations = CircularBuffer{Vector{ComplexF64}}(window_size)
+	n_iter = 0
+
+	while(true)
+		n_iter += 1
+
+		new_state = sample_state(basis)
 		
-# 		if (rand() < abs.(ψ(new_state)/ψ(state)) ^ 2)
-# 			state = new_state
-# 		end
+		if (rand() < abs.(ψ(new_state)/ψ(state)) ^ 2)
+			state = new_state
+		end
 
-# 		deriv = @diff ψ(state)
-# 		Ow = vcat(vec.(grad.([deriv], params(network)))...) ./ ψ(state)
+		deriv = @diff ψ(state)
+		Ow = vcat(vec.(grad.([deriv], params(network)))...) ./ ψ(state)
 		
-# 		res .+= conj.(Ow)
-# 		push!(hist, (res)./(length(hist) + 1))
+		res .+= conj.(Ow)
+		push!(expectations, (res) ./ n_iter)
 		
-# 		if(isfull(hist) && rms(norm.(hist)) < atol) break end
+		if(isfull(expectations) && (rms(norm.(expectations)) < (atol .+ rtol * mean(norm.(expectations))))) break end
+	end
 
-# 	end
+	return [mean([expectations[i][j] for i in 1:length(expectations)]) for j in 1:length(expectations[1])]
+end
 
-# 	return [mean([hist[i][j] for i in 1:length(hist)]) for j in 1:length(hist[1])]
-# end
-
-# function energy_grad(ψ, L, N, basis, network, rtol = 1e-3; kwargs...)
-# 	2 .* real.(Ow_energy(ψ, L, N, basis, network, rtol; kwargs...) .- Ow(ψ, basis, network, rtol) .* expectationMC(ψ, hamiltonian, L, N, basis, network, rtol); kwargs...)
-# end
+function energy_grad(ψ, L, N, basis, network, rtol = 1e-3, atol = 1e-5, window_size = 1000; kwargs...)
+	2 .* real.(Ow_energy(ψ, L, N, basis, network, rtol, atol, window_size; kwargs...) .- (Ow(ψ, basis, network, rtol, atol, window_size) .* expectationMC(ψ, hamiltonian, L, N, basis, network, rtol, atol, window_size; kwargs...)))
+end
