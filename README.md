@@ -47,19 +47,25 @@ Currently, there is no way to sample the basis set without enumerating it comple
 
 To determine the convergence of the MC average, we track the last `window_size` values of the sampling. `rtol` and `atol` are required to specify the tolerance of statistical errors in the result.
 
-The operator `op` must be a function that takes in a vector (`state`, an element of the basis set), num_bosons, `N` and num_lattice_sites, `L`. It must return a collection of tuples `(state_final, coefficient)` obtained by the application of the operator on the state. Any parameters required by the operator are passed through the keyword arguments, `kwargs`. 
+The operator `op` must be a function that takes in a vector (`state`, an element of the basis set), num_bosons, `N` and num_lattice_sites, `L`. It must return a collection of tuples `(state_final, coefficient)` obtained by the application of the operator on the state. Any parameters required by the operator are passed through the keyword arguments, `kwargs`. Following are some operators that have been implemented:
 
 #### Hamiltonian
-$$H = -t\sum_{\langle i, j, \rangle} a_i^{\dagger}a_j + \frac{U}{2}\sum_i n_i (n_i - 1) - \mu \sum_i n_i$$
+$$H = -t\sum_{\langle i, j, \rangle} \hat{a}_i^{\dagger}\hat{a}_j + \frac{U}{2}\sum_i \hat{n}_i (hat{n}_i - \hat{1}) - \mu \sum_i \hat{n}_i$$
+<center>
 `hamiltonian(state, L, N; t, U, mu)`
+</center>
 
 #### Hopping parameter
-$$\text{Hop(i, j)} = a_i^{\dagger}a_j$$
+$$\text{Hop(i, j)} = \hat{a}_i^{\dagger}\hat{a}_j$$
+<center>
 `hop(state, L, N; i, j)`
+</center>
 
-#### Number operator
-$$Number(f, i) = f(a_i^{\dagger}a_i) = f(n_i)$$
+#### Arbitrary function of number operator
+$$\text{Number}(f, i) = f(\hat{a}_i^{\dagger}\hat{a}_i) = f(\hat{n}_i)$$
+<center>
 `num(state, i, f = identity)`
+</center>
 
 ### Calculate energy gradient
 
