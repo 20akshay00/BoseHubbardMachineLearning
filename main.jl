@@ -268,15 +268,16 @@ function main_init(N = 5, L = 5, Nh = 10)
 	return psi, network, basis
 end
 
-function gradient_descent!(psi, L, N, basis, network, rtol = 1e-3, atol = 1e-6, window_size = 1000; callback = nothing, show_progress = true, gamma = 0.05, n_iter = 10, kwargs...)
+# gradient descent 
+function train!(psi, L, N, basis, network, rtol = 1e-3, atol = 1e-6, window_size = 1000; callback = nothing, gamma = 0.05, n_iter = 10, kwargs...)
     w = params_list(network)
 
     for i in 1:n_iter
         w .-= gamma * energy_grad(psi, L, N, basis, network, rtol, atol, window_size; kwargs...)
 
-		# for (old_param, new_param) in zip(params(network), reconstruct_params(network, w))
-		# 	old_param .= new_param
-		# end
+		for (old_param, new_param) in zip(params(network), reconstruct_params(network, w))
+			old_param .= new_param
+		end
 
 		if !isnothing(callback) callback([psi, network, i]; kwargs...) end
 	end
@@ -284,6 +285,7 @@ function gradient_descent!(psi, L, N, basis, network, rtol = 1e-3, atol = 1e-6, 
     return psi
 end
 
+# progress bar callback function
 function progress_bar_init(n_iter, N, L, basis)
 	p = Progress(n_iter; showspeed=true)
 
@@ -293,6 +295,14 @@ function progress_bar_init(n_iter, N, L, basis)
 		ProgressMeter.next!(p; showvalues = [(:iter, i), (:energy, energy)])
 	end
 end
+
+# Basic run 
+# N, L, Nh = 5, 5, 10
+# psi, network, basis = main_init(N, L, Nh)
+
+# n_iter = 10
+# train!(psi, N, L, basis, network; callback = progress_bar_init(n_iter, N, L, basis), n_iter = n_iter, t = 0.01, mu = 0.5, U = 1)
+
 
 # for some expectation values run: (remove callback arg if you dont need real-time plotting)
 # expectationMC(psi, hamiltonian, 5, 5, basis, u, 1e-3, 1e-5, 1000; callback = debug_plot_init(), t = 0.01, mu = 0.5, U = 1)

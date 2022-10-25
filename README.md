@@ -26,8 +26,8 @@ basis = generate_basis(num_bosons, num_lattice_sites)
 
 ### Calculate gradient of the network output w.r.t weights
 ```julia
-tmp = @diff psi(rand(M))
-deriv = grad.([tmp], params(u))
+tmp = @diff psi(rand(num_lattice_sites))
+deriv = grad.([tmp], params(network))
 ```
 This is performed using the convenient macro provided by `AutoGrad.jl`. 
 
