@@ -1,4 +1,4 @@
-using AutoGrad, StatsBase, LinearAlgebra, DataStructures, GLMakie
+using AutoGrad, StatsBase, LinearAlgebra, DataStructures, ProgressMeter, GLMakie
 
 # Construct neural network structure 
 begin
@@ -117,7 +117,7 @@ begin
 	sample_state(basis) = basis[rand(1:size(basis)[1]), :]
 	
 	# Monte Carlo expectation for arbitrary operator. Pass operator dependant parameters in kwargs.
-	function expectationMC(psi, op, L, N, basis, network, rtol = 1e-3, atol = 1e-5, window_size = 1000; callback = identity, kwargs...)
+	function expectationMC(psi, op, L, N, basis, network, rtol = 1e-3, atol = 1e-6, window_size = 1000; callback = identity, kwargs...)
 
 		res = 0. + 0im # result (summing over contributions of the MC chain, but not averaged yet)
 
@@ -190,7 +190,7 @@ end
 
 ## Other expectations needed to compute energy gradient
 
-function Ow_energy(psi, L, N, basis, network, rtol = 1e-3, atol = 1e-5, window_size = 1000; callback = identity, kwargs...)
+function Ow_energy(psi, L, N, basis, network, rtol = 1e-3, atol = 1e-6, window_size = 1000; callback = identity, kwargs...)
 	
 	res = zeros(ComplexF64, size(network))
 	state = sample_state(basis)
@@ -228,7 +228,7 @@ function Ow_energy(psi, L, N, basis, network, rtol = 1e-3, atol = 1e-5, window_s
 	return [mean([expectations[i][j] for i in 1:length(expectations)]) for j in 1:length(expectations[1])]
 end
 
-function Ow(psi, basis, network, rtol = 1e-3, atol = 1e-5, window_size = 1000; callback = identity)
+function Ow(psi, basis, network, rtol = 1e-3, atol = 1e-6, window_size = 1000; callback = identity)
 	res = zeros(ComplexF64, size(network))
 	state = sample_state(basis)
 	expectations = CircularBuffer{Vector{ComplexF64}}(window_size)
@@ -255,40 +255,52 @@ function Ow(psi, basis, network, rtol = 1e-3, atol = 1e-5, window_size = 1000; c
 	return [mean([expectations[i][j] for i in 1:length(expectations)]) for j in 1:length(expectations[1])]
 end
 
-function energy_grad(psi, L, N, basis, network, rtol = 1e-3, atol = 1e-5, window_size = 1000; kwargs...)
+function energy_grad(psi, L, N, basis, network, rtol = 1e-3, atol = 1e-6, window_size = 1000; kwargs...)
 	2 .* real.(Ow_energy(psi, L, N, basis, network, rtol, atol, window_size; kwargs...) .- (Ow(psi, basis, network, rtol, atol, window_size) .* expectationMC(psi, hamiltonian, L, N, basis, network, rtol, atol, window_size; kwargs...)))
 end
 
 # Mock network + wavefunction for testing
 begin
-	N, M = 5, 5
+	N, L = 5, 5
 	Nh = 10
-	u = Chain(Dense(M, Nh, tanh), Dense(Nh, 2))
+	u = Chain(Dense(L, Nh, tanh), Dense(Nh, 2))
 	psi(n) = exp(sum(u(n) .* [1, 1im]))
 
 	basis = generate_basis(5, 5)
 	() # to suppress terminal output 
 
 	# for some expectation values run: (remove callback arg if you dont need real-time plotting)
-	# expectationMC(psi, hamiltonian, 5, 5, basis, u, 1e-3, 1000; callback = debug_plot_init(), t = 0.01, mu = 0.5, U = 1)
+	# expectationMC(psi, hamiltonian, 5, 5, basis, u, 1e-3, 1e-5, 1000; callback = debug_plot_init(), t = 0.01, mu = 0.5, U = 1)
 	# or 
-	# expectationMC(psi, hop, 5, 5, basis, u, 1e-3, 1000; callback = debug_plot_init(),i = 3, j = 4)
+	# expectationMC(psi, hop, 5, 5, basis, u, 1e-3, 1e-5, 1000; callback = debug_plot_init(),i = 3, j = 4)
 	# or
-	# Ow(psi, basis, u, 1e-4, 1000; callback = debug_plot_init())
+	# Ow(psi, basis, u, 1e-3, 1e-5, 1000; callback = debug_plot_init())
 	# or 
-	# Ow_energy(psi, 5, 5, basis, u, 1e-3, 1000; callback = debug_plot_init(), t = 0.01, mu = 0.5, U = 1)
+	# Ow_energy(psi, 5, 5, basis, u, 1e-3, 1e-5, 1000; callback = debug_plot_init(), t = 0.01, mu = 0.5, U = 1)
 end;
 
-function gradient_descent(psi, L, N, basis, network, rtol = 1e-3, atol = 1e-5, window_size = 1000; gamma = 0.05, n_iter = 10, kwargs...)
+function gradient_descent(psi, L, N, basis, network, rtol = 1e-3, atol = 1e-6, window_size = 1000; callback = nothing, show_progress = true, gamma = 0.05, n_iter = 10, kwargs...)
     w = params_list(network)
 
     for i in 1:n_iter
         w .-= gamma * energy_grad(psi, L, N, basis, network, rtol, atol, window_size; kwargs...)
-    end
+
+		if !isnothing(callback) callback([psi, network, i]; kwargs...) end
+	end
 
 	for (old_param, new_param) in zip(params(network), reconstruct_params(network, w))
 		old_param .= new_param
 	end
 
     return psi
+end
+
+function progress_bar_init(n_iter)
+	p = Progress(n_iter; showspeed=true)
+
+	function progress_bar(state; kwargs...)
+		psi, u, i = state
+		energy = expectationMC(psi, hamiltonian, N, l, basis, u, 1e-3, 1e-5, 1000; kwargs...)
+		ProgressMeter.next!(p; showvalues = [(:iter, i), (:energy, energy)])
+	end
 end
