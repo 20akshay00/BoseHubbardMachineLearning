@@ -51,21 +51,21 @@ The operator `op` must be a function that takes in a vector (`state`, an element
 
 #### Hamiltonian
 $$H = -t\sum_{\langle i, j, \rangle} \hat{a}_i^{\dagger}\hat{a}_j + \frac{U}{2}\sum_i \hat{n}_i (hat{n}_i - \hat{1}) - \mu \sum_i \hat{n}_i$$
-<center>
+<p align="center">
 `hamiltonian(state, L, N; t, U, mu)`
-</center>
+</p>
 
 #### Hopping parameter
 $$\text{Hop(i, j)} = \hat{a}_i^{\dagger}\hat{a}_j$$
-<center>
+<p align="center">
 `hop(state, L, N; i, j)`
-</center>
+</p>
 
 #### Arbitrary function of number operator
 $$\text{Number}(f, i) = f(\hat{a}_i^{\dagger}\hat{a}_i) = f(\hat{n}_i)$$
-<center>
+<p align="center">
 `num(state, i, f = identity)`
-</center>
+</p>
 
 ### Calculate energy gradient
 
