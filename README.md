@@ -50,22 +50,20 @@ To determine the convergence of the MC average, we track the last `window_size` 
 The operator `op` must be a function that takes in a vector (`state`, an element of the basis set), num_bosons, `N` and num_lattice_sites, `L`. It must return a collection of tuples `(state_final, coefficient)` obtained by the application of the operator on the state. Any parameters required by the operator are passed through the keyword arguments, `kwargs`. Following are some operators that have been implemented:
 
 #### Hamiltonian
-$$H = -t\sum_{\langle i, j, \rangle} \hat{a}_i^{\dagger}\hat{a}_j + \frac{U}{2}\sum_i \hat{n}_i (hat{n}_i - \hat{1}) - \mu \sum_i \hat{n}_i$$
-<p align="center">
-`hamiltonian(state, L, N; t, U, mu)`
-</p>
+$$H = -t\sum_{\langle i, j, \rangle} \hat{a}_i^{\dagger}\hat{a}_j + \frac{U}{2}\sum_i \hat{n}_i (\hat{n}_i - \hat{1}) - \mu \sum_i \hat{n}_i$$
+
+Code: `hamiltonian(state, L, N; t, U, mu)`
+
 
 #### Hopping parameter
 $$\text{Hop(i, j)} = \hat{a}_i^{\dagger}\hat{a}_j$$
-<p align="center">
-`hop(state, L, N; i, j)`
-</p>
+
+Code: `hop(state, L, N; i, j)`
 
 #### Arbitrary function of number operator
 $$\text{Number}(f, i) = f(\hat{a}_i^{\dagger}\hat{a}_i) = f(\hat{n}_i)$$
-<p align="center">
-`num(state, i, f = identity)`
-</p>
+
+Code: `num(state, i, f = identity)`
 
 ### Calculate energy gradient
 
