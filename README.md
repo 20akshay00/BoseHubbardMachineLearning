@@ -18,14 +18,17 @@ network = Chain(Dense(num_lattice_sites, num_hidden_layers, tanh), Dense(num_hid
 
 # obtain wavefunction coefficients from the network
 psi(n) = exp(sum(network(n) .* [1, 1im]))
+
+# enumerate occupation basis set
+basis = generate_basis(num_bosons, num_lattice_sites)
 ```
 
 ### Calculate gradient of the network output w.r.t weights
 ```
-tmp = @diff ψ(rand(M))
+tmp = @diff psi(rand(M))
 deriv = grad.([tmp], params(u))
 ```
-This is performed using the convenient macro provided by `AutoGrad.jl`.
+This is performed using the convenient macro provided by `AutoGrad.jl`. 
 
 ### Calculate the expectation value of any observable (by monte carlo sampling):
 
@@ -33,7 +36,7 @@ This is performed using the convenient macro provided by `AutoGrad.jl`.
 expectationMC(psi, op, L, N, basis, network, rtol, atol, window_size; callback, kwargs...)
 ```
 
-Currently, there is no way to sample the basis set without enumerating it completely first (forcing the requirement of the `basis` argument which is a list of all basis elements). The `generate_basis(N, L)` function can be used for this purpose, where `N` is `num_bosons` and `L` is `num_lattice_sites`.
+Currently, there is no way to sample the basis set without enumerating it completely first (forcing the requirement of the `basis` argument which is a list of all basis elements). The `generate_basis(num_bosons, num_lattice_sites)` function can be used for this purpose.
 
 To determine the convergence of the MC average, we track the last `window_size` values of the sampling. `rtol` and `atol` are required to specify the tolerance of statistical errors in the result.
 

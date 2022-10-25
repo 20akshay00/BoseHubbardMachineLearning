@@ -117,7 +117,7 @@ begin
 	sample_state(basis) = basis[rand(1:size(basis)[1]), :]
 	
 	# Monte Carlo expectation for arbitrary operator. Pass operator dependant parameters in kwargs.
-	function expectationMC(ψ, op, L, N, basis, network, rtol = 1e-3, atol = 1e-5, window_size = 1000; callback = identity, kwargs...)
+	function expectationMC(psi, op, L, N, basis, network, rtol = 1e-3, atol = 1e-5, window_size = 1000; callback = identity, kwargs...)
 
 		res = 0. + 0im # result (summing over contributions of the MC chain, but not averaged yet)
 
@@ -132,13 +132,13 @@ begin
 			new_state = sample_state(basis)
 			
 			# accept based on weights 
-			if (rand() < abs.(ψ(new_state)/ψ(state)) ^ 2)
+			if (rand() < abs.(psi(new_state)/psi(state)) ^ 2)
 				state = new_state
 			end
 
 			# calculate contribution of new state to the result; op * |state> = coeff * |state_op>
 			for (state_op, coeff) in op(state, L, N; kwargs...)
-				res += coeff * ψ(state_op)/ψ(state)
+				res += coeff * psi(state_op)/psi(state)
 			end
 	
 			# push the result to hist (divided by n_iter to calculate Monte Carlo average)
@@ -188,29 +188,9 @@ function debug_plot_init()
 	return debug_plot
 end
 
-# Mock network + wavefunction for testing
-begin
-	N, M = 5, 5
-	Nh = 10
-	u = Chain(Dense(M, Nh, tanh), Dense(Nh, 2))
-	ψ(n) = exp(sum(u(n) .* [1, 1im]))
-
-	basis = generate_basis(5, 5)
-	() # to suppress terminal output 
-
-	# for some expectation values run: (remove callback arg if you dont need real-time plotting)
-	# expectationMC(ψ, hamiltonian, 5, 5, basis, u, 1e-3, 1000; callback = debug_plot_init(), t = 0.01, mu = 0.5, U = 1)
-	# or 
-	# expectationMC(ψ, hop, 5, 5, basis, u, 1e-3, 1000; callback = debug_plot_init(),i = 3, j = 4)
-	# or
-	# Ow(ψ, basis, u, 1e-4, 1000; callback = debug_plot_init())
-	# or 
-	# Ow_energy(ψ, 5, 5, basis, u, 1e-3, 1000; callback = debug_plot_init(), t = 0.01, mu = 0.5, U = 1)
-end;
-
 ## Other expectations needed to compute energy gradient
 
-function Ow_energy(ψ, L, N, basis, network, rtol = 1e-3, atol = 1e-5, window_size = 1000; callback = identity, kwargs...)
+function Ow_energy(psi, L, N, basis, network, rtol = 1e-3, atol = 1e-5, window_size = 1000; callback = identity, kwargs...)
 	
 	res = zeros(ComplexF64, size(network))
 	state = sample_state(basis)
@@ -224,16 +204,16 @@ function Ow_energy(ψ, L, N, basis, network, rtol = 1e-3, atol = 1e-5, window_si
 		n_iter += 1
 		new_state = sample_state(basis)
 		
-		if (rand() < abs.(ψ(new_state)/ψ(state)) ^ 2)
+		if (rand() < abs.(psi(new_state)/psi(state)) ^ 2)
 			state = new_state
 		end
 
 		for (state_op, coeff) in hamiltonian(state, L, N; kwargs...)
-			tmp_res .+= coeff * ψ(state_op)/ψ(state)
+			tmp_res .+= coeff * psi(state_op)/psi(state)
 		end
 		
-		deriv = @diff ψ(state)
-		Ow = vcat(vec.(grad.([deriv], params(network)))...) ./ ψ(state)
+		deriv = @diff psi(state)
+		Ow = vcat(vec.(grad.([deriv], params(network)))...) ./ psi(state)
 		tmp_res .*= conj.(Ow)
 
 		res .+= tmp_res
@@ -248,7 +228,7 @@ function Ow_energy(ψ, L, N, basis, network, rtol = 1e-3, atol = 1e-5, window_si
 	return [mean([expectations[i][j] for i in 1:length(expectations)]) for j in 1:length(expectations[1])]
 end
 
-function Ow(ψ, basis, network, rtol = 1e-3, atol = 1e-5, window_size = 1000; callback = identity)
+function Ow(psi, basis, network, rtol = 1e-3, atol = 1e-5, window_size = 1000; callback = identity)
 	res = zeros(ComplexF64, size(network))
 	state = sample_state(basis)
 	expectations = CircularBuffer{Vector{ComplexF64}}(window_size)
@@ -259,12 +239,12 @@ function Ow(ψ, basis, network, rtol = 1e-3, atol = 1e-5, window_size = 1000; ca
 
 		new_state = sample_state(basis)
 		
-		if (rand() < abs.(ψ(new_state)/ψ(state)) ^ 2)
+		if (rand() < abs.(psi(new_state)/psi(state)) ^ 2)
 			state = new_state
 		end
 
-		deriv = @diff ψ(state)
-		Ow = vcat(vec.(grad.([deriv], params(network)))...) ./ ψ(state)
+		deriv = @diff psi(state)
+		Ow = vcat(vec.(grad.([deriv], params(network)))...) ./ psi(state)
 		
 		res .+= conj.(Ow)
 		push!(expectations, (res) ./ n_iter)
@@ -275,6 +255,40 @@ function Ow(ψ, basis, network, rtol = 1e-3, atol = 1e-5, window_size = 1000; ca
 	return [mean([expectations[i][j] for i in 1:length(expectations)]) for j in 1:length(expectations[1])]
 end
 
-function energy_grad(ψ, L, N, basis, network, rtol = 1e-3, atol = 1e-5, window_size = 1000; kwargs...)
-	2 .* real.(Ow_energy(ψ, L, N, basis, network, rtol, atol, window_size; kwargs...) .- (Ow(ψ, basis, network, rtol, atol, window_size) .* expectationMC(ψ, hamiltonian, L, N, basis, network, rtol, atol, window_size; kwargs...)))
+function energy_grad(psi, L, N, basis, network, rtol = 1e-3, atol = 1e-5, window_size = 1000; kwargs...)
+	2 .* real.(Ow_energy(psi, L, N, basis, network, rtol, atol, window_size; kwargs...) .- (Ow(psi, basis, network, rtol, atol, window_size) .* expectationMC(psi, hamiltonian, L, N, basis, network, rtol, atol, window_size; kwargs...)))
+end
+
+# Mock network + wavefunction for testing
+begin
+	N, M = 5, 5
+	Nh = 10
+	u = Chain(Dense(M, Nh, tanh), Dense(Nh, 2))
+	psi(n) = exp(sum(u(n) .* [1, 1im]))
+
+	basis = generate_basis(5, 5)
+	() # to suppress terminal output 
+
+	# for some expectation values run: (remove callback arg if you dont need real-time plotting)
+	# expectationMC(psi, hamiltonian, 5, 5, basis, u, 1e-3, 1000; callback = debug_plot_init(), t = 0.01, mu = 0.5, U = 1)
+	# or 
+	# expectationMC(psi, hop, 5, 5, basis, u, 1e-3, 1000; callback = debug_plot_init(),i = 3, j = 4)
+	# or
+	# Ow(psi, basis, u, 1e-4, 1000; callback = debug_plot_init())
+	# or 
+	# Ow_energy(psi, 5, 5, basis, u, 1e-3, 1000; callback = debug_plot_init(), t = 0.01, mu = 0.5, U = 1)
+end;
+
+function gradient_descent(psi, L, N, basis, network, rtol = 1e-3, atol = 1e-5, window_size = 1000; gamma = 0.05, n_iter = 10, kwargs...)
+    w = params_list(network)
+
+    for i in 1:n_iter
+        w .-= gamma * energy_grad(psi, L, N, basis, network, rtol, atol, window_size; kwargs...)
+    end
+
+	for (old_param, new_param) in zip(params(network), reconstruct_params(network, w))
+		old_param .= new_param
+	end
+
+    return psi
 end
