@@ -13,7 +13,7 @@ It utilizes a feed-forward neural network as a variational ansatz for the wavefu
 num_bosons, num_lattice_sites = 5, 5
 num_hidden_layers = 10
 
-#chain together dense layers to construct a feed-forward neural network
+# chain together dense layers to construct a feed-forward neural network
 network = Chain(Dense(num_lattice_sites, num_hidden_layers, tanh), Dense(num_hidden_layers, 2)) 
 
 # obtain wavefunction coefficients from the network
@@ -26,7 +26,7 @@ psi(n) = exp(sum(network(n) .* [1, 1im]))
 expectationMC(psi, op, L, N, basis, network, rtol, atol, window_size; callback, kwargs...)
 ```
 
-Currently, there is no way to sample the basis set without enumerating it completely first (forcing the requirement of the `basis` argument which is a list of all basis elements). 
+Currently, there is no way to sample the basis set without enumerating it completely first (forcing the requirement of the `basis` argument which is a list of all basis elements). The `generate_basis(N, L)` function can be used for this purpose, where `N` is `num_bosons` and `L` is `num_lattice_sites`.
 
 To determine the convergence of the MC average, we track the last `window_size` values of the sampling. `rtol` and `atol` are required to specify the tolerance of statistical errors in the result.
 
@@ -43,6 +43,6 @@ Same arguments as discussed in the previous section. However, `kwargs` must spec
 
 ### Callback functions
 
-All the MC loops have the provision of calling a callback function every `n` iterations (`n=100` currently). This can be useful if you want to track some other quantity or perform an action periodically while the MC procedure is running. The function must take an input tuple `(expectations, n_iter)` which specifies the state of the simulation at that moment. `expectations` carries the last `window_size` results of the MC sampling and `n_iter` is the iteration number at the moment the callback is used.
+All the MC loops have the provision of calling a callback function every `n` iterations (`n=100` currently). This can be useful if you want to track some other quantity or perform an action periodically while the MC procedure is running. The function must take an input tuple `(expectations, n_iter)` which specifies the state of the simulation at that moment. `expectations` carries the last `window_size` results of the MC sampling and `n_iter` is the iteration number at the moment the callback is invoked.
 
-A `debug_plot_init` function is provided out of the box that plots the MC values in real-time as the loop is running which can be useful for debugging the code.
+A `debug_plot_init` function is provided out of the box that plots the MC values in real-time (using `Makie.jl`) as the loop is running which can be useful for debugging the code.
