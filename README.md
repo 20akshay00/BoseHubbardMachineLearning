@@ -9,7 +9,8 @@ It utilizes a feed-forward neural network as a variational ansatz for the wavefu
 ## Basic usage
 
 ### Setting up the neural network:
-```
+
+```julia
 num_bosons, num_lattice_sites = 5, 5
 num_hidden_layers = 10
 
@@ -24,7 +25,7 @@ basis = generate_basis(num_bosons, num_lattice_sites)
 ```
 
 ### Calculate gradient of the network output w.r.t weights
-```
+```julia
 tmp = @diff psi(rand(M))
 deriv = grad.([tmp], params(u))
 ```
@@ -32,7 +33,7 @@ This is performed using the convenient macro provided by `AutoGrad.jl`.
 
 ### Calculate the expectation value of any observable (by monte carlo sampling):
 
-```
+```julia
 expectationMC(psi, op, L, N, basis, network, rtol, atol, window_size; callback, kwargs...)
 ```
 
@@ -45,7 +46,7 @@ The operator `op` must be a function that takes in a vector (`state`, an element
 
 ### Calculate energy gradient
 
-```
+```julia
 Ow_energy(psi, L, N, basis, network, rtol, atol, window_size; callback, kwargs...)
 ```
 

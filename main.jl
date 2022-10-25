@@ -260,47 +260,45 @@ function energy_grad(psi, L, N, basis, network, rtol = 1e-3, atol = 1e-6, window
 end
 
 # Mock network + wavefunction for testing
-begin
-	N, L = 5, 5
-	Nh = 10
-	u = Chain(Dense(L, Nh, tanh), Dense(Nh, 2))
-	psi(n) = exp(sum(u(n) .* [1, 1im]))
+function main_init(N = 5, L = 5, Nh = 10)
+	network = Chain(Dense(L, Nh, tanh), Dense(Nh, 2))
+	psi(n) = exp(sum(network(n) .* [1, 1im]))
+	basis = generate_basis(N, L)
 
-	basis = generate_basis(5, 5)
-	() # to suppress terminal output 
+	return psi, network, basis
+end
 
-	# for some expectation values run: (remove callback arg if you dont need real-time plotting)
-	# expectationMC(psi, hamiltonian, 5, 5, basis, u, 1e-3, 1e-5, 1000; callback = debug_plot_init(), t = 0.01, mu = 0.5, U = 1)
-	# or 
-	# expectationMC(psi, hop, 5, 5, basis, u, 1e-3, 1e-5, 1000; callback = debug_plot_init(),i = 3, j = 4)
-	# or
-	# Ow(psi, basis, u, 1e-3, 1e-5, 1000; callback = debug_plot_init())
-	# or 
-	# Ow_energy(psi, 5, 5, basis, u, 1e-3, 1e-5, 1000; callback = debug_plot_init(), t = 0.01, mu = 0.5, U = 1)
-end;
-
-function gradient_descent(psi, L, N, basis, network, rtol = 1e-3, atol = 1e-6, window_size = 1000; callback = nothing, show_progress = true, gamma = 0.05, n_iter = 10, kwargs...)
+function gradient_descent!(psi, L, N, basis, network, rtol = 1e-3, atol = 1e-6, window_size = 1000; callback = nothing, show_progress = true, gamma = 0.05, n_iter = 10, kwargs...)
     w = params_list(network)
 
     for i in 1:n_iter
         w .-= gamma * energy_grad(psi, L, N, basis, network, rtol, atol, window_size; kwargs...)
 
-		if !isnothing(callback) callback([psi, network, i]; kwargs...) end
-	end
+		# for (old_param, new_param) in zip(params(network), reconstruct_params(network, w))
+		# 	old_param .= new_param
+		# end
 
-	for (old_param, new_param) in zip(params(network), reconstruct_params(network, w))
-		old_param .= new_param
+		if !isnothing(callback) callback([psi, network, i]; kwargs...) end
 	end
 
     return psi
 end
 
-function progress_bar_init(n_iter)
+function progress_bar_init(n_iter, N, L, basis)
 	p = Progress(n_iter; showspeed=true)
 
 	function progress_bar(state; kwargs...)
-		psi, u, i = state
-		energy = expectationMC(psi, hamiltonian, N, l, basis, u, 1e-3, 1e-5, 1000; kwargs...)
+		psi, network, i = state
+		energy = expectationMC(psi, hamiltonian, N, L, basis, network, 1e-3, 1e-5, 1000; kwargs...)
 		ProgressMeter.next!(p; showvalues = [(:iter, i), (:energy, energy)])
 	end
 end
+
+# for some expectation values run: (remove callback arg if you dont need real-time plotting)
+# expectationMC(psi, hamiltonian, 5, 5, basis, u, 1e-3, 1e-5, 1000; callback = debug_plot_init(), t = 0.01, mu = 0.5, U = 1)
+# or 
+# expectationMC(psi, hop, 5, 5, basis, u, 1e-3, 1e-5, 1000; callback = debug_plot_init(),i = 3, j = 4)
+# or
+# Ow(psi, basis, u, 1e-3, 1e-5, 1000; callback = debug_plot_init())
+# or 
+# Ow_energy(psi, 5, 5, basis, u, 1e-3, 1e-5, 1000; callback = debug_plot_init(), t = 0.01, mu = 0.5, U = 1)
