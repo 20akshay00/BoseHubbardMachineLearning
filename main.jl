@@ -208,14 +208,6 @@ begin
 	# Ow_energy(ψ, 5, 5, basis, u, 1e-3, 1000; callback = debug_plot_init(), t = 0.01, mu = 0.5, U = 1)
 end;
 
-
-## Snippet to get derivative of network outputs wrt weights
-
-# begin
-# 	y = @diff ψ(rand(M))
-# 	grad.([y], params(u))
-# end
-
 ## Other expectations needed to compute energy gradient
 
 function Ow_energy(ψ, L, N, basis, network, rtol = 1e-3, atol = 1e-5, window_size = 1000; callback = identity, kwargs...)

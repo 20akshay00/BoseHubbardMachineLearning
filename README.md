@@ -20,6 +20,13 @@ network = Chain(Dense(num_lattice_sites, num_hidden_layers, tanh), Dense(num_hid
 psi(n) = exp(sum(network(n) .* [1, 1im]))
 ```
 
+### Calculate gradient of the network output w.r.t weights
+```
+tmp = @diff ψ(rand(M))
+deriv = grad.([tmp], params(u))
+```
+This is performed using the convenient macro provided by `AutoGrad.jl`.
+
 ### Calculate the expectation value of any observable (by monte carlo sampling):
 
 ```
