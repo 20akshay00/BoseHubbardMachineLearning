@@ -1,4 +1,11 @@
-using AutoGrad, StatsBase, LinearAlgebra, DataStructures, ProgressMeter, GLMakie
+using AutoGrad, StatsBase, LinearAlgebra, DataStructures, ProgressMeter
+
+# import Makie only if display variable exists 
+if Sys.islinux() && isnothing(get(ENV, "DISPLAY", nothing))
+	println("The DISPLAY environment variable is missing. Functions involving graphical plots cannot be used.")
+else
+	using GLMakie
+end
 
 # Construct neural network structure 
 begin
