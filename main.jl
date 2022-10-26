@@ -93,7 +93,7 @@ begin
 	end
 
 	# f(n̂) - arbitrary functions of number operator
-	function num(state, i, f = identity)
+	function num(state, L, N; f = identity, i)
 		return [(copy(state), f(state[i]))]
 	end
 	
@@ -108,10 +108,10 @@ begin
 			state_final, coeff = hop(state, L, N; i = j, j = i)[1]
 			res[state_final] = get(res, state_final, 0.) - t * coeff
 
-			state_final, coeff = num(state, i, (n) -> n * (n - 1))[1]
+			state_final, coeff = num(state, L, N; f = (n) -> n * (n - 1), i = i)[1]
 			res[state_final] = get(res, state_final, 0.) + 0.5 * U * coeff
 
-			state_final, coeff = num(state, i)[1]
+			state_final, coeff = num(state, L, N; i = i)[1]
 			res[state_final] = get(res, state_final, 0.) - mu * coeff
 		end
 
