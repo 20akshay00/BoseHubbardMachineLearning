@@ -293,13 +293,17 @@ function train!(psi, L, N, basis, network, rtol = 1e-3, atol = 1e-6, window_size
 end
 
 # progress bar callback function
-function progress_bar_init(n_iter, N, L, basis)
+function progress_bar_init(n_iter, N, L, basis, filename)
 	p = Progress(n_iter; showspeed=true)
+	f = open("./data/$filename", "a")
 
 	function progress_bar(state; kwargs...)
 		psi, network, i = state
 		energy = expectationMC(psi, hamiltonian, N, L, basis, network, 1e-3, 1e-5, 1000; kwargs...)
 		ProgressMeter.next!(p; showvalues = [(:iter, i), (:energy, energy)])
+
+		write(f, "\n$i, $(real.(energy))")
+		if(i == n_iter) close(f) end
 	end
 end
 
