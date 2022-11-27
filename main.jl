@@ -87,7 +87,7 @@ begin
 		state_final = copy(state)
 		state_final[i] += 1
 		state_final[j] -= 1
-		coeff = (state[i] >= N || state[j] == 0) ? 0. : sqrt((state[i] + 1) * state[j])
+		coeff = (state[i] == N || state[j] == 0) ? 0. : sqrt((state[i] + 1) * state[j])
 
 		return [(state_final, coeff)]
 	end
